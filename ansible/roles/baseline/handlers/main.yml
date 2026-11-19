@@ -1,0 +1,19 @@
+---
+- name: Restart Chrony
+  ansible.builtin.systemd_service:
+    name: chrony.service
+    state: restarted
+  when: not ansible_check_mode or 'chrony.service' in ansible_facts.services
+
+- name: Refresh APT cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Reload systemctl daemon
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Reload SSH
+  ansible.builtin.systemd_service:
+    name: ssh.service
+    state: reloaded

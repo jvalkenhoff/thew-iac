@@ -1,0 +1,25 @@
+---
+- name: Gather installed packages
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Identify unwanted installed packages
+  ansible.builtin.set_fact:
+    baseline_installed_unwanted_packages: >-
+      {{
+        baseline_removed_packages
+        | select('in', ansible_facts.packages)
+        | list
+      }}
+
+- name: Display unwanted installed packages
+  ansible.builtin.debug:
+    var: baseline_installed_unwanted_packages
+
+- name: Purge unwanted packages
+  ansible.builtin.apt:
+    name: "{{ baseline_installed_unwanted_packages }}"
+    state: absent
+    purge: true
+    autoremove: false
+  when: baseline_installed_unwanted_packages | length > 0

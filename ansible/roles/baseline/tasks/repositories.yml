@@ -1,0 +1,42 @@
+---
+- name: Verify Debian 12 target
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == "Debian"
+      - ansible_facts.distribution_major_version == "12"
+    fail_msg: "This repository configuration requires Debian 12"
+
+- name: Configure Debian repositories
+  ansible.builtin.template:
+    src: debian.sources.j2
+    dest: /etc/apt/sources.list.d/debian.sources
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Refresh APT cache
+
+- name: Check original sources.list
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list
+  register: baseline_original_sources
+
+- name: Check previous sources.list backup
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.disabled
+  register: baseline_backup_sources
+
+- name: Prevent overwriting an existing backup
+  ansible.builtin.assert:
+    that:
+      - not (baseline_original_sources.stat.exists and baseline_backup_sources.stat.exists)
+    fail_msg: "Both source files exist. Review them before continuing."
+
+- name: Disable legacy sources.list
+  ansible.builtin.command:
+    argv:
+      - mv
+      - /etc/apt/sources.list
+      - /etc/apt/sources.list.disabled
+    creates: /etc/apt/sources.list.disabled
+    removes: /etc/apt/sources.list
+  notify: Refresh APT cache

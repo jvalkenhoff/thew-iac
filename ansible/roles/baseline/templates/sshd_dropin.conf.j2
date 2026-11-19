@@ -1,0 +1,49 @@
+# Managed by Ansible
+
+# Connection and logging
+LoginGraceTime 60
+LogLevel VERBOSE
+MaxAuthTries 4
+MaxStartups 10:30:60
+
+# Access
+PermitRootLogin no
+AllowGroups {{ baseline_ssh_login_group }}
+
+# Authentication
+PubkeyAuthentication yes
+
+{% if baseline_ssh_key_only %}
+AuthenticationMethods publickey
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+{% endif %}
+
+UsePAM yes
+
+# Dead connection detection
+ClientAliveInterval 15
+ClientAliveCountMax 3
+
+# Information disclosure
+DebianBanner no
+PrintMotd no
+
+# Additional authentication restrictions
+HostbasedAuthentication no
+GSSAPIAuthentication no
+PermitEmptyPasswords no
+
+# Cryptographic policy
+Ciphers -3des-cbc,aes128-cbc,aes192-cbc,aes256-cbc
+KexAlgorithms -diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1
+MACs -hmac-md5*,hmac-sha1*,umac-64*
+
+# Forwarding and environment
+AllowTcpForwarding yes
+PermitUserEnvironment no
+PermitTunnel no
+X11Forwarding no
+
+# Pre-authentication warning
+Banner /etc/issue.net

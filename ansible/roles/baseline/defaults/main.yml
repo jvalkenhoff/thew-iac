@@ -1,0 +1,58 @@
+---
+baseline_packages:
+  - bash-completion
+  - apt-transport-https
+  - ca-certificates
+  - chrony
+  - cron
+  - curl
+  - debian-archive-keyring
+  - gpg
+  - sudo
+  - vim
+  - wget
+  - jq
+  - tcpdump
+  - open-vm-tools
+
+baseline_removed_packages:
+  - autofs
+  - avahi-daemon
+  - isc-dhcp-server
+  - bind9
+  - dnsmasq
+  - vsftpd
+  - slapd
+  - dovecot-imapd
+  - dovecot-pop3d
+  - nfs-kernel-server
+  - ypserv
+  - cups
+  - samba
+  - snmpd
+  - tftpd-hpa
+  - squid
+  - apache2
+  - nginx
+  - xinetd
+  - postfix
+  - exim4
+  - exim4-base
+  - exim4-config
+  - exim4-daemon-light
+  - exim4-daemon-heavy
+  - sendmail-bin
+  - nis
+  - rsh-client
+  - talk
+  - telnet
+  - inetutils-telnet
+  - ftp
+  - tnftp
+
+baseline_chrony_pool: nl.pool.ntp.org
+baseline_admin_user: debian
+baseline_debian_release: bookworm
+baseline_ssh_login_group: ssh-login
+baseline_ssh_authorized_public_keys: []
+baseline_ssh_key_only: false

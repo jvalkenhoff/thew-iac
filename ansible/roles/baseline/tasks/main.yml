@@ -1,0 +1,23 @@
+---
+- name: Configure baseline packages
+  ansible.builtin.import_tasks: packages.yml
+
+- name: Remove unwanted packages
+  ansible.builtin.import_tasks: package_cleanup.yml
+
+- name: Configure APT repositories
+  ansible.builtin.import_tasks: repositories.yml
+
+- name: Configure administrative user
+  ansible.builtin.import_tasks: admin.yml
+
+- name: Configure SSH
+  ansible.builtin.import_tasks: ssh.yml
+
+- name: Configure time sync
+  ansible.builtin.import_tasks: chrony.yml
+
+- name: Inspect filesystem configuration
+  ansible.builtin.import_tasks: filesystem.yml
+  tags:
+    - filesystem

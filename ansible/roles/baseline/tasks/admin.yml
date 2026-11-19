@@ -1,0 +1,6 @@
+---
+- name: Ensure administrative user has sudo access
+  ansible.builtin.user:
+    name: "{{ baseline_admin_user }}"
+    groups: sudo
+    append: true

@@ -1,0 +1,13 @@
+pool {{ baseline_chrony_pool }} iburst maxsources 4
+
+driftfile /var/lib/chrony/chrony.drift
+
+makestep 1.0 3
+
+rtcsync
+
+port 0
+
+cmdport 0
+
+logdir /var/log/chrony

@@ -1,0 +1,72 @@
+---
+- name: Ensure SSH login group exists
+  ansible.builtin.group:
+    name: "{{ baseline_ssh_login_group }}"
+    state: present
+  register: baseline_ssh_group
+
+- name: Add administrative user to SSH login group
+  ansible.builtin.user:
+    name: "{{ baseline_admin_user }}"
+    groups: "{{ baseline_ssh_login_group }}"
+    append: true
+  when: not ansible_check_mode or not baseline_ssh_group.changed
+
+- name: Deploy SSH configuration
+  ansible.builtin.template:
+    src: sshd_dropin.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-sshd_dropin.conf
+    owner: root
+    group: root
+    mode: '0600'
+    backup: true
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reload SSH
+
+- name: Validate complete SSH configuration
+  ansible.builtin.command:
+    cmd: /usr/sbin/sshd -t
+  changed_when: false
+
+- name: Require an authorized key before enforcing key-only SSH
+  ansible.builtin.assert:
+    that:
+      - baseline_ssh_authorized_public_keys | length > 0
+    fail_msg: "At least one SSH public key must be configured"
+  when: baseline_ssh_key_only
+
+- name: Authorize administrative SSH public keys
+  ansible.posix.authorized_key:
+    user: "{{ baseline_admin_user }}"
+    key: "{{ item }}"
+    state: present
+    manage_dir: true
+    exclusive: false
+  loop: "{{ baseline_ssh_authorized_public_keys }}"
+  loop_control:
+    label: "SSH key for {{ baseline_admin_user }}"
+
+- name: Configure SSH pre-authentication warning banner
+  ansible.builtin.copy:
+    dest: /etc/issue.net
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      Authorized users only. All activity may be monitored and reported.
+
+- name: Read effective SSH daemon configuration
+  ansible.builtin.command:
+    cmd: /usr/sbin/sshd -T
+  register: baseline_sshd_effective
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify SSH forwarding and root login policy
+  ansible.builtin.assert:
+    that:
+      - "'permitrootlogin no' in baseline_sshd_effective.stdout_lines"
+      - "'allowtcpforwarding yes' in baseline_sshd_effective.stdout_lines"
+      - "'disableforwarding no' in baseline_sshd_effective.stdout_lines"
+    fail_msg: "Effective SSH configuration differs from the expected baseline."
+  when: not ansible_check_mode
