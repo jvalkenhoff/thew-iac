@@ -46,6 +46,18 @@
     cmd: resolvectl query deb.debian.org
   changed_when: false
 
+- name: Gather network service state before cutover
+  ansible.builtin.service_facts:
+
+- name: Determine whether network cutover requires a reboot
+  ansible.builtin.set_fact:
+    network_cutover_required: >-
+      {{
+        ansible_facts.services.get('systemd-networkd.service', {}).get('state') != 'running'
+        or
+        ansible_facts.services.get('networking.service', {}).get('status') == 'enabled'
+      }}
+
 - name: Disable legacy networking on future boots
   ansible.builtin.systemd_service:
     name: networking.service
@@ -63,14 +75,11 @@
     replace: '# \1'
     backup: true
 
-- name: Gather network service state before cutover
-  ansible.builtin.service_facts:
-
 - name: Reboot to activate systemd-networkd
   ansible.builtin.reboot:
     reboot_timeout: 300
     post_reboot_delay: 10
-  when: network_cutover_required
+  when: network_cutover_required | bool
 
 - name: Refresh network facts after cutover
   ansible.builtin.setup:
@@ -79,15 +88,6 @@
 
 - name: Gather service states after network cutover
   ansible.builtin.service_facts:
-
-- name: Determine whether network cutover requires a reboot
-  ansible.builtin.set_fact:
-    network_cutover_required: >-
-      {{
-        ansible_facts.services.get('systemd-networkd.service', {}).get('state') != 'running'
-        or
-        ansible_facts.services.get('networking.service', {}).get('status') == 'enabled'
-      }}
 
 - name: Verify systemd-networkd is running
   ansible.builtin.assert:
@@ -112,7 +112,7 @@
   ansible.builtin.assert:
     that:
       - >-
-        ('10' ~ network_interface ~ '.network')
+        ('10-' ~ network_interface ~ '.network')
         in network_active_interface.stdout
     fail_msg: "Network interface is not using the expected networkd configuration."
 
