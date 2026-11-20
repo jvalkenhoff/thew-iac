@@ -1,0 +1,6 @@
+---
+- name: Prepare systemd-networkd configuration
+  hosts: lab
+  become: true
+  roles:
+    - network
