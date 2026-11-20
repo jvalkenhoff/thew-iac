@@ -7,16 +7,6 @@
       - network_gateway == ansible_facts.default_ipv4.gateway
     fail_msg: "Desired network configuration does not match the current connection."
 
-- name: Gather network service information
-  ansible.builtin.service_facts:
-
-- name: Ensure networkd is not managing the network yet
-  ansible.builtin.assert:
-    that:
-      - >-
-        ansible_facts.services.get('systemd-networkd.service', {}).get('state', 'stopped') != 'running'
-    msg: "systemd-networkd is already running. Review the current network config before proceeding."
-
 - name: Ensure networkd configuration directory exists
   ansible.builtin.file:
     path: /etc/systemd/network

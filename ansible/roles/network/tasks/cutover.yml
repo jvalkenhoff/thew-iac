@@ -23,6 +23,7 @@
   ansible.builtin.apt:
     name: systemd-resolved
     state: present
+  notify: Restart systemd-resolved after installation
 
 - name: Enable and start DNS resolver
   ansible.builtin.systemd_service:
@@ -36,6 +37,9 @@
     src: /run/systemd/resolve/stub-resolv.conf
     state: link
     force: true
+
+- name: Apply pending handlers before DNS verification
+  ansible.builtin.meta: flush_handlers
 
 - name: Verify DNS resolution before network cutover
   ansible.builtin.command:
@@ -52,6 +56,13 @@
     name: systemd-networkd.service
     enabled: true
 
+- name: Disable legacy ifupdown interface definitions
+  ansible.builtin.replace:
+    path: /etc/network/interfaces
+    regexp: '^(?!\s*#|\s*$)(.+)$'
+    replace: '# \1'
+    backup: true
+
 - name: Gather network service state before cutover
   ansible.builtin.service_facts:
 
@@ -59,15 +70,30 @@
   ansible.builtin.reboot:
     reboot_timeout: 300
     post_reboot_delay: 10
-  when: >-
-    ansible_facts.services.get(
-      'systemd-networkd.service', {}
-    ).get('state', 'stopped') != 'running'
+  when: network_cutover_required
 
 - name: Refresh network facts after cutover
   ansible.builtin.setup:
     gather_subset:
       - network
+
+- name: Gather service states after network cutover
+  ansible.builtin.service_facts:
+
+- name: Determine whether network cutover requires a reboot
+  ansible.builtin.set_fact:
+    network_cutover_required: >-
+      {{
+        ansible_facts.services.get('systemd-networkd.service', {}).get('state') != 'running'
+        or
+        ansible_facts.services.get('networking.service', {}).get('status') == 'enabled'
+      }}
+
+- name: Verify systemd-networkd is running
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.services.get('systemd-networkd.service', {}).get('state') == 'running'
+    fail_msg: "systemd-networkd is not running after reboot"
 
 - name: Verify network addressing after cutover
   ansible.builtin.assert:
@@ -76,7 +102,21 @@
       - network_address.split('/')[0] == ansible_facts.default_ipv4.address
       - network_gateway == ansible_facts.default_ipv4.gateway
 
+- name: Inspect active networkd interface configuration
+  ansible.builtin.command:
+    cmd: "networkctl status {{ network_interface }} --no-pager"
+  register: network_active_interface
+  changed_when: false
+
+- name: Verify networkd manages the expected interface
+  ansible.builtin.assert:
+    that:
+      - >-
+        ('10' ~ network_interface ~ '.network')
+        in network_active_interface.stdout
+    fail_msg: "Network interface is not using the expected networkd configuration."
+
 - name: Verify DNS resolution after cutover
   ansible.builtin.command:
-    cmd: resolvectl query deb.query.org
+    cmd: resolvectl query deb.debian.org
   changed_when: false
