@@ -1,27 +1,23 @@
 ---
-- name: Verify network interface and address
+- name: Verify network interface
   ansible.builtin.assert:
     that:
       - network_interface == ansible_facts.default_ipv4.interface
       - network_address.split('/')[0] == ansible_facts.default_ipv4.address
       - network_gateway == ansible_facts.default_ipv4.gateway
-    fail_msg: "Desired network configuration does not match the current connection"
+    fail_msg: "Desired network configuration does not match the current connection."
 
-- name: Inspect networkd service state
-  ansible.builtin.command:
-    cmd: systemctl is-active systemd-networkd.service
-  register: networkd_state
-  changed_when: false
-  failed_when: false
-  check_mode: false
+- name: Gather network service information
+  ansible.builtin.service_facts:
 
-- name: Ensure networkd is not active during preparation
+- name: Ensure networkd is not managing the network yet
   ansible.builtin.assert:
     that:
-      - networkd_state.stdout != 'active'
-    fail_msg: "networkd is already active. Stop and review the current configuration."
+      - >-
+        ansible_facts.services.get('systemd-networkd.service', {}).get('state', 'stopped') != 'running'
+    msg: "systemd-networkd is already running. Review the current network config before proceeding."
 
-- name: Ensure systemd network configuration directory exists
+- name: Ensure networkd configuration directory exists
   ansible.builtin.file:
     path: /etc/systemd/network
     state: directory
@@ -29,7 +25,7 @@
     group: root
     mode: '0755'
 
-- name: Deploy static network interface configuration
+- name: Deploy static network interface config
   ansible.builtin.template:
     src: 10-interface.network.j2
     dest: "/etc/systemd/network/10-{{ network_interface }}.network"
@@ -37,3 +33,6 @@
     group: root
     mode: '0644'
     backup: true
+
+- name: Prepare DNS resolver configuration
+  ansible.builtin.import_tasks: resolved.yml
