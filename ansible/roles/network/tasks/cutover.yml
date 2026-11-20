@@ -1,0 +1,82 @@
+---
+- name: Check prepared network interface configuration
+  ansible.builtin.stat:
+    path: "/etc/systemd/network/10-{{ network_interface }}.network"
+  register: network_interface_file
+
+- name: Check prepared DNS resolver configuration
+  ansible.builtin.stat:
+    path: /etc/systemd/resolved.conf.d/10-dns.conf
+  register: network_dns_file
+
+- name: Require prepared network configuration
+  ansible.builtin.assert:
+    that:
+      - network_interface_file.stat.exists
+      - network_dns_file.stat.exists
+      - network_interface == ansible_facts.default_ipv4.interface
+      - network_address.split('/')[0] == ansible_facts.default_ipv4.address
+      - network_gateway == ansible_facts.default_ipv4.gateway
+    fail_msg: "Network preparation is incomplete or does not match the host"
+
+- name: Install systemd-resolved
+  ansible.builtin.apt:
+    name: systemd-resolved
+    state: present
+
+- name: Enable and start DNS resolver
+  ansible.builtin.systemd_service:
+    name: systemd-resolved.service
+    enabled: true
+    state: started
+
+- name: Configure local DNS stub resolver
+  ansible.builtin.file:
+    path: /etc/resolv.conf
+    src: /run/systemd/resolve/stub-resolv.conf
+    state: link
+    force: true
+
+- name: Verify DNS resolution before network cutover
+  ansible.builtin.command:
+    cmd: resolvectl query deb.debian.org
+  changed_when: false
+
+- name: Disable legacy networking on future boots
+  ansible.builtin.systemd_service:
+    name: networking.service
+    enabled: false
+
+- name: Enable systemd-networkd on future boots
+  ansible.builtin.systemd_service:
+    name: systemd-networkd.service
+    enabled: true
+
+- name: Gather network service state before cutover
+  ansible.builtin.service_facts:
+
+- name: Reboot to activate systemd-networkd
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+    post_reboot_delay: 10
+  when: >-
+    ansible_facts.services.get(
+      'systemd-networkd.service', {}
+    ).get('state', 'stopped') != 'running'
+
+- name: Refresh network facts after cutover
+  ansible.builtin.setup:
+    gather_subset:
+      - network
+
+- name: Verify network addressing after cutover
+  ansible.builtin.assert:
+    that:
+      - network_interface == ansible_facts.default_ipv4.interface
+      - network_address.split('/')[0] == ansible_facts.default_ipv4.address
+      - network_gateway == ansible_facts.default_ipv4.gateway
+
+- name: Verify DNS resolution after cutover
+  ansible.builtin.command:
+    cmd: resolvectl query deb.query.org
+  changed_when: false

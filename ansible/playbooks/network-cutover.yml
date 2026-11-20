@@ -1,0 +1,11 @@
+---
+- name: Transition Debian hosts to systemd-networkd
+  hosts: lab
+  become: true
+  serial: 1
+
+  tasks:
+    - name: Execute network cutover
+      ansible.builtin.import_role:
+        name: network
+        tasks_from: cutover
