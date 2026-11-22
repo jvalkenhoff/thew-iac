@@ -1,0 +1,64 @@
+---
+- name: Configure account lockout policy
+  ansible.builtin.copy:
+    dest: /etc/security/faillock.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+    content: |
+      deny = 5
+      fail_interval = 900
+      unlock_time = 900
+      silent
+      even_deny_root
+      root_unlock_time
+
+- name: Ensure password quality policy directory exists
+  ansible.builtin.file:
+    path: /etc/security/pwquality.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure passive password quality configuration
+  ansible.builtin.copy:
+    dest: /etc/security/pwquality.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+    content: |
+      # Active password quality policy is managed in:
+      # /etc/security/pwquality.conf.d/password-quality.conf
+
+- name: Configure active password quality policy
+  ansible.builtin.copy:
+    dest: /etc/security/pwquality.conf.d/password-quality.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+    content: |
+      # Require at least 2 characters changed.
+      difok = 2
+
+      # Minimum password length.
+      minlen = 14
+
+      # Require at least 3 character classes.
+      minclass = 3
+
+      # Reject excessive character repetition.
+      maxrepeat = 3
+
+      # Reject long monotonic sequences.
+      maxsequence = 3
+
+      # Enable dictionary checking.
+      dictcheck = 1
+
+      # Enforce password quality requirements.
+      enforcing = 1
+      enforce_for_root

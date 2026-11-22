@@ -1,0 +1,9 @@
+---
+- name: Configure login warnings
+  ansible.builtin.import_tasks: login_warnings.yml
+
+- name: Configure PAM security policies
+  ansible.builtin.import_tasks: pam_policies.yml
+
+- name: Configure PAM authentication profiles
+  ansible.builtin.import_tasks: pam_profiles.yml

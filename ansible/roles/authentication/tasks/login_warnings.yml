@@ -1,0 +1,24 @@
+---
+- name: Configure console login warning
+  ansible.builtin.copy:
+    dest: /etc/issue
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      Authorized users only. All activity may be monitored and reported.
+
+- name: Remove static MOTD
+  ansible.builtin.file:
+    path: /etc/motd
+    state: absent
+
+- name: Disable PAM MOTD output
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '^[ \t]*(session[ \t]+optional[ \t]+pam_motd\.so[^\r\n]*)$'
+    replace: '# \1'
+    backup: true
+  loop:
+    - /etc/pam.d/login
+    - /etc/pam.d/sshd

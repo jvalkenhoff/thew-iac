@@ -1,0 +1,7 @@
+---
+- name: Configure Debian authentication policies
+  hosts: lab
+  become: true
+
+  roles:
+    - authentication

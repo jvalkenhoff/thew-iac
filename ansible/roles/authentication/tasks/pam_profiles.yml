@@ -1,0 +1,109 @@
+---
+- name: Install password quality PAM module
+  ansible.builtin.apt:
+    name: libpam-pwquality
+    state: present
+
+- name: Deploy PAM authentication profiles
+  ansible.builtin.copy:
+    dest: "/usr/share/pam-configs/{{ item.name }}"
+    content: "{{ item.content }}"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  loop:
+    - name: faillock
+      content: |
+        Name: Enable pam_faillock to deny access
+        Default: yes
+        Priority: 0
+        Auth-Type: Primary
+        Auth:
+         [default=die] pam_faillock.so authfail
+
+    - name: faillock_notify
+      content: |
+        Name: Check account lockout before authentication
+        Default: yes
+        Priority: 1024
+        Auth-Type: Primary
+        Auth:
+         required pam_faillock.so preauth
+        Account-Type: Primary
+        Account:
+         required pam_faillock.so
+
+    - name: pwhistory
+      content: |
+        Name: Pwhistory password history checking
+        Default: yes
+        Priority: 1024
+        Password-Type: Primary
+        Password:
+         requisite pam_pwhistory.so remember=24 enforce_for_root use_authtok
+
+    - name: unix
+      content: |
+        Name: Unix authentication
+        Default: yes
+        Priority: 256
+        Auth-Type: Primary
+        Auth:
+         [success=end default=ignore] pam_unix.so try_first_pass
+        Auth-Initial:
+         [success=end default=ignore] pam_unix.so
+        Account-Type: Primary
+        Account:
+         [success=end new_authtok_reqd=done default=ignore] pam_unix.so
+        Account-Initial:
+         [success=end new_authtok_reqd=done default=ignore] pam_unix.so
+        Session-Type: Additional
+        Session:
+         required pam_unix.so
+        Session-Initial:
+         required pam_unix.so
+        Password-Type: Primary
+        Password:
+         [success=end default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt
+        Password-Initial:
+         [success=end default=ignore] pam_unix.so obscure yescrypt
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Read current PAM authentication stacks
+  ansible.builtin.slurp:
+    src: "{{ item }}"
+  loop:
+    - /etc/pam.d/common-auth
+    - /etc/pam.d/common-account
+    - /etc/pam.d/common-password
+  register: authentication_pam_stacks
+
+- name: Detect active security PAM modules
+  ansible.builtin.set_fact:
+    authentication_pam_active: >-
+      {{
+        (authentication_pam_stacks.results[0].content | b64decode)
+          is search('(?m)^auth\s+.*pam_faillock\.so\s+preauth')
+        and
+        (authentication_pam_stacks.results[0].content | b64decode)
+          is search('(?m)^auth\s+.*pam_faillock\.so\s+authfail')
+        and
+        (authentication_pam_stacks.results[1].content | b64decode)
+          is search('(?m)^account\s+.*pam_faillock\.so')
+        and
+        (authentication_pam_stacks.results[2].content | b64decode)
+          is search('(?m)^password\s+.*pam_pwquality\.so')
+        and
+        (authentication_pam_stacks.results[2].content | b64decode)
+          is search('(?m)^password\s+.*pam_pwhistory\.so')
+      }}
+
+- name: Acticate PAM authentication profiles
+  ansible.builtin.command:
+    cmd: pam-auth-update --enable unix faillock faillock_notify pwquality pwhistory
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  when: not authentication_pam_active | bool
+  changed_when: true
