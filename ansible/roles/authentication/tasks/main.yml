@@ -7,3 +7,12 @@
 
 - name: Configure PAM authentication profiles
   ansible.builtin.import_tasks: pam_profiles.yml
+
+- name: Configure account lifecycle defaults
+  ansible.builtin.import_tasks: account_defaults.yml
+
+- name: Configure existing account password aging
+  ansible.builtin.import_tasks: password_aging.yml
+
+- name: Configure root shell environment
+  ansible.builtin.import_tasks: root_shell.yml

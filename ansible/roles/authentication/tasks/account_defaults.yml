@@ -1,0 +1,23 @@
+---
+- name: Configure system account defaults
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^\s*#?\s*{{ item.name }}\s+'
+    line: "{{ item.name }} {{ item.value }}"
+    backup: true
+  loop:
+    - { name: PASS_MAX_DAYS, value: 365 }
+    - { name: PASS_MIN_DAYS, value: 1 }
+    - { name: PASS_WARN_AGE, value: 7 }
+    - { name: LOGIN_RETRIES, value: 5 }
+    - { name: LOGIN_TIMEOUT, value: 60 }
+    - { name: UMASK, value: '027' }
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Configure default account inactivity period
+  ansible.builtin.lineinfile:
+    path: /etc/default/useradd
+    regexp: '^\s*#?\s*INACTIVE\s*='
+    line: 'INACTIVE=45'
+    backup: true

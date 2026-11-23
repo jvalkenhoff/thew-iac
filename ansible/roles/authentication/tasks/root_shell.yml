@@ -1,0 +1,21 @@
+---
+- name: Configure root security profile
+  ansible.builtin.copy:
+    dest: /root/.security-profile
+    owner: root
+    group: root
+    mode: '0600'
+    content: |
+      umask 027
+      export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+- name: Load root security profile from shell initialization files
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    line: '[ -f /root/.security-profile ] && . /root/.security-profile'
+    state: present
+    insertafter: EOF
+    backup: true
+  loop:
+    - /root/.profile
+    - /root/.bashrc
